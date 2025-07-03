@@ -8,6 +8,10 @@ from rich import print
 from rich.table import Table
 import ssl
 import pandas as pd
+import re
+from datetime import datetime, timedelta
+
+
 
 
 # --- Database Setup ---
@@ -35,23 +39,64 @@ class MiniTerminal(cmd.Cmd):
             print(f"[red]Could not retrieve data for {ticker.upper()}[/red]")
 
     # --- CHART ---
-    def do_chart(self, ticker):
-        """Show last 30 days of closing prices as an ASCII chart: chart TICKER"""
-        if not ticker:
-            print("Please provide a ticker symbol.")
+    def do_chart(self, arg):
+        """
+    Show closing price chart: chart TICKER [RANGE]
+    RANGE options: 7d, 30d, 90d, 1y
+    Example: chart AAPL 90d
+    """
+        args = arg.split()
+        if len(args) == 0:
+            print("Usage: chart TICKER [RANGE]")
             return
-        data = yf.download(ticker, period="30d", interval="1d", progress=False)
+    
+        ticker = args[0]
+        if len(args) > 1:
+            date_range = args[1].lower()
+        else:
+            date_range = "30d"
+
+        # Parse date range
+        match = re.match(r"(\d+)([dy])", date_range)
+        if not match:
+            print(f"[red]Invalid date range '{date_range}'. Use formats like 7d, 30d, 1y.[/red]")
+            return
+
+        num = int(match.group(1))
+        unit = match.group(2)
+
+        if unit == "d":
+            period_days = num
+        elif unit == "y":
+            period_days = num * 365
+        else:
+            print(f"[red]Invalid unit '{unit}' in date range.[/red]")
+            return
+
+        # Download data
+        data = yf.download(ticker, period=f"{period_days}d", interval="1d", progress=False)
+        if data.empty or "Close" not in data.columns:
+            print(f"[red]No price data found for {ticker.upper()}[/red]")
+            return
+
         data = data[["Close"]].dropna()
         if data.empty:
-            print(f"No closing price data for {ticker.upper()}")
+            print(f"[red]No valid closing price data for {ticker.upper()}[/red]")
             return
+
         data['Date'] = data.index
-        plt.figure(figsize=(10,5))
+
+        # Plot
+        plt.figure(figsize=(10, 5))
         plt.plot(data['Date'], data['Close'], marker='o')
-        plt.title(f"{ticker.upper()} - Last 30 Days Closing Prices")
+        plt.title(f"{ticker.upper()} - Last {period_days} Days Closing Prices")
+        plt.xlabel("Date")
+        plt.ylabel("Close Price ($)")
         plt.xticks(rotation=45)
         plt.tight_layout()
+        plt.grid(True)
         plt.show()
+        
                     
 
     # --- WATCHLIST ---
