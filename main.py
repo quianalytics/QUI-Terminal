@@ -10,6 +10,7 @@ from rich.table import Table
 import matplotlib.pyplot as plt
 from plyer import notification
 import ssl
+import queue
 
 ALERT_CHECK_INTERVAL = 30  # seconds
 
@@ -24,6 +25,11 @@ class QUITerminal(cmd.Cmd):
         self._setup_db()
         self._load_alerts()
         self._start_alert_threads()
+        self.alert_queue = queue.Queue()
+        self._setup_db()
+        self._load_alerts()
+        self._start_alert_listener()
+
 
     def _setup_db(self):
         c = self.db.cursor()
@@ -51,9 +57,19 @@ class QUITerminal(cmd.Cmd):
         for ticker in list(self.alerts.keys()):
             self._start_alert_thread(ticker)
 
+    def _start_alert_listener(self):
+        def alert_listener():
+            while True:
+                ticker = self.alert_queue.get()  # blocking wait
+                if ticker is None:
+                    break  # exit signal for clean shutdown if needed
+                self._remove_alert(ticker)
+        threading.Thread(target=alert_listener, daemon=True).start()
+
     def _start_alert_thread(self, ticker):
         alert = self.alerts[ticker]
         def check_price():
+            thread_db = sqlite3.connect("alerts.db")
             while alert["active"]:
                 try:
                     stock = yf.Ticker(ticker)
@@ -69,7 +85,7 @@ class QUITerminal(cmd.Cmd):
                             timeout=10
                         )
                         print(f"[green]ALERT: {ticker} price is above {alert['price']} (Current: {current_price})[/green]")
-                        self._remove_alert(ticker)
+                        self.alert_queue.put(ticker)  # notify main thread
                         break
 
                     elif alert["direction"] == "below" and current_price <= alert["price"]:
@@ -79,25 +95,27 @@ class QUITerminal(cmd.Cmd):
                             timeout=10
                         )
                         print(f"[green]ALERT: {ticker} price is below {alert['price']} (Current: {current_price})[/green]")
-                        self._remove_alert(ticker)
+                        self.alert_queue.put(ticker)  # notify main thread
                         break
                 except Exception as e:
                     print(f"[yellow]Warning: Alert check failed for {ticker}: {e}[/yellow]")
                 time.sleep(ALERT_CHECK_INTERVAL)
-
+            thread_db.close()
+        
         thread = threading.Thread(target=check_price, daemon=True)
         alert["thread"] = thread
         thread.start()
 
     def _remove_alert(self, ticker):
-        # Remove alert from memory and DB
         alert = self.alerts.get(ticker)
         if alert:
             alert["active"] = False
             self.alerts.pop(ticker)
-            c = self.db.cursor()
-            c.execute("DELETE FROM alerts WHERE ticker=?", (ticker,))
-            self.db.commit()
+            with sqlite3.connect("alerts.db") as conn:
+                c = conn.cursor()
+                c.execute("DELETE FROM alerts WHERE ticker=?", (ticker,))
+                conn.commit()
+            print(f"[cyan]Alert for {ticker} removed.[/cyan]")
 
     def do_alert(self, arg):
         """
@@ -113,6 +131,7 @@ class QUITerminal(cmd.Cmd):
             return
 
         ticker, price_str, direction = parts
+        ticker = ticker.upper()
         direction = direction.lower()
         if direction not in ("above", "below"):
             print("[red]Direction must be 'above' or 'below'[/red]")
@@ -128,7 +147,6 @@ class QUITerminal(cmd.Cmd):
             print(f"[yellow]Alert for {ticker} already exists. Cancel it first.[/yellow]")
             return
 
-        # Save to DB
         c = self.db.cursor()
         c.execute("INSERT OR REPLACE INTO alerts (ticker, target_price, direction) VALUES (?, ?, ?)",
                   (ticker, target_price, direction))
@@ -164,7 +182,6 @@ class QUITerminal(cmd.Cmd):
         self._remove_alert(ticker)
         print(f"[green]Alert for {ticker} canceled.[/green]")
 
-    # --- Existing commands below ---
 
     def do_quote(self, ticker):
         """Get the latest stock price: quote TICKER"""
@@ -208,7 +225,7 @@ class QUITerminal(cmd.Cmd):
         if not ticker:
             print("[red]Please provide a ticker symbol.[/red]")
             return
-        rss_url = f"https://news.google.com/rss/search?q={ticker}+stock&hl=en-US&gl=US&ceid=US:en"
+        rss_url = f"https://news.google.com/rss/search?q={ticker}&hl=en-US&gl=US&ceid=US:en"
         feed = feedparser.parse(rss_url)
         entries = feed.entries
         if not entries:
@@ -276,6 +293,7 @@ class QUITerminal(cmd.Cmd):
     def do_exit(self, arg):
         """Exit the terminal."""
         print("Goodbye!")
+        self.alert_queue.put(None)
         return True
 
     def do_help(self, arg):
