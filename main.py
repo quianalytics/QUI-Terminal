@@ -88,27 +88,73 @@ class MiniTerminal(cmd.Cmd):
 
     # --- FINANCIALS ---
     def do_fundamentals(self, ticker):
-        """Show key financial metrics: fundamentals TICKER"""
+        """Show TTM and quarterly financials: fundamentals TICKER"""
         if not ticker:
-            print("[red]Please provide a ticker.[/red]")
+            print("[red]Please provide a ticker symbol.[/red]")
             return
-        stock = yf.Ticker(ticker)
+
+        from rich.table import Table
+        from datetime import datetime
+
         try:
+            stock = yf.Ticker(ticker)
+
+            # TTM Financials
             info = stock.info
-            fcf = info.get("freeCashflow", None)
-            shares = info.get("sharesOutstanding", None)
-            fcf_per_share = (fcf / shares) if (fcf and shares) else "N/A"
-            table = Table(title=f"{ticker.upper()} Financials")
+            fcf = info.get("freeCashflow")
+            shares = info.get("sharesOutstanding")
+            revenue = info.get("totalRevenue")
+            ebitda = info.get("ebitda")
+            fcf_per_share = (fcf / shares) if (fcf and shares) else None
+
+            table = Table(title=f"{ticker.upper()} - Trailing 12 Months (TTM)")
             table.add_column("Metric")
             table.add_column("Value", justify="right")
-            table.add_row("Revenue (TTM)", f"${info.get('totalRevenue', 'N/A'):,}")
-            table.add_row("EBITDA", f"${info.get('ebitda', 'N/A'):,}")
+            table.add_row("Revenue", f"${revenue:,}" if revenue else "N/A")
+            table.add_row("EBITDA", f"${ebitda:,}" if ebitda else "N/A")
             table.add_row("Free Cash Flow", f"${fcf:,}" if fcf else "N/A")
             table.add_row("FCF / Share", f"${fcf_per_share:.2f}" if isinstance(fcf_per_share, float) else "N/A")
             print(table)
-        except Exception as e:
-            print(f"[red]Error retrieving financials: {e}[/red]")
 
+            # Quarterly Financials (last 4 quarters)
+            quarterly_is = stock.quarterly_financials
+            quarterly_cf = stock.quarterly_cashflow
+
+            # Revenue table
+            rev_table = Table(title=f"{ticker.upper()} - Quarterly Revenue")
+            rev_table.add_column("Quarter")
+            rev_table.add_column("Revenue", justify="right")
+
+            for date in quarterly_is.columns[:4]:
+                revenue_q = quarterly_is.loc["Total Revenue", date] if "Total Revenue" in quarterly_is.index else None
+                quarter_str = date.strftime("%Y-%m")
+                rev_table.add_row(quarter_str, f"${revenue_q:,}" if revenue_q else "N/A")
+            print(rev_table)
+
+            # FCF/share table
+            fcf_table = Table(title=f"{ticker.upper()} - Quarterly FCF / Share")
+            fcf_table.add_column("Quarter")
+            fcf_table.add_column("FCF", justify="right")
+            fcf_table.add_column("FCF / Share", justify="right")
+
+            for date in quarterly_cf.columns[:4]:
+                fcf_q = None
+                for row in ["Free Cash Flow", "Total Cash From Operating Activities"]:  # fallback options
+                    if row in quarterly_cf.index:
+                        fcf_q = quarterly_cf.loc[row, date]
+                        break
+                fcf_per_share_q = (fcf_q / shares) if (fcf_q and shares) else None
+                quarter_str = date.strftime("%Y-%m")
+                fcf_table.add_row(
+                    quarter_str,
+                    f"${fcf_q:,}" if fcf_q else "N/A",
+                    f"${fcf_per_share_q:.2f}" if isinstance(fcf_per_share_q, float) else "N/A"
+                )
+            print(fcf_table)
+
+        except Exception as e:
+            print(f"[red]Error retrieving financials for {ticker.upper()}: {e}[/red]")
+            
     # --- NEWS ---
     def do_news(self, ticker):
         ssl._create_default_https_context = ssl._create_unverified_context
