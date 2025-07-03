@@ -673,6 +673,36 @@ class QUITerminal(cmd.Cmd):
 
         except Exception as e:
             print(f"[red]Error fetching economic calendar: {e}[/red]")
+    
+    def do_company_info(self, ticker):
+        """Show company info: company_info TICKER"""
+        if not ticker:
+            print("[red]Please provide a ticker symbol.[/red]")
+            return
+        try:
+            stock = yf.Ticker(ticker)
+            info = stock.info
+
+            table = Table(title=f"{ticker.upper()} Company Info")
+
+            def safe_get(key):
+                return info.get(key, "N/A") if info else "N/A"
+
+            table.add_column("Field")
+            table.add_column("Value", overflow="fold")
+
+            table.add_row("Name", safe_get("longName"))
+            table.add_row("Sector", safe_get("sector"))
+            table.add_row("Industry", safe_get("industry"))
+            table.add_row("CEO", safe_get("companyOfficers")[0]["name"] if safe_get("companyOfficers") else "N/A")
+            table.add_row("Website", safe_get("website"))
+            table.add_row("Headquarters", safe_get("city") + ", " + safe_get("state") if safe_get("city") and safe_get("state") else "N/A")
+            table.add_row("Description", safe_get("longBusinessSummary")[:500] + "..." if safe_get("longBusinessSummary") else "N/A")
+
+            print(table)
+
+        except Exception as e:
+            print(f"[red]Error fetching company info: {e}[/red]")
 
     def do_exit(self, arg):
         """Exit the terminal."""
@@ -685,6 +715,7 @@ class QUITerminal(cmd.Cmd):
         print("- market: Show real-time global index and commodity summary")
         print("- quote TICKER: Get the latest stock price")
         print("- fundamentals TICKER: Show revenue, EBITDA, and FCF per share")
+        print("- company_info TICKER: Show company profile and details")
         print("- forex: Show major Forex rates")
         print("- insider TICKER: Show recent insider trading activity for a ticker")
         print("- news TICKER: Show news headlines")
