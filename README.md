@@ -8,3 +8,4 @@ rich
 feed-parser
 sqlite-utils
 matplotlib
+plyer

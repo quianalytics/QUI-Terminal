@@ -3,3 +3,6 @@ bin/
 lib/
 include/
 share/
+testing.py
+objc_classes/
+alerts.db
