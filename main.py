@@ -12,8 +12,11 @@ from plyer import notification
 import ssl
 import queue
 from textblob import TextBlob
+import requests
+from bs4 import BeautifulSoup
+from datetime import datetime, timedelta
 
-ALERT_CHECK_INTERVAL = 30  # seconds
+ALERT_CHECK_INTERVAL = 15  # seconds
 
 class QUITerminal(cmd.Cmd):
     intro = "Welcome to the QUI Terminal. Type help or ? to list commands.\n"
@@ -281,8 +284,7 @@ class QUITerminal(cmd.Cmd):
         for entry in entries[:5]:
             print(f"- [blue]{entry.title}[/blue]")
             print(f"  [dim]{entry.link}[/dim]\n")
-    
-    
+      
     def do_sentiment(self, ticker):
     # Show news headlines with sentiment analysis (TextBlob): sentiment TICKER
         if not ticker:
@@ -320,9 +322,6 @@ class QUITerminal(cmd.Cmd):
 
         avg_score = sum(sentiments) / len(sentiments)
         print(f"[bold]Average Sentiment Score:[/bold] {avg_score:.2f}")
-
-
-
 
     def do_chart(self, arg):
         """
@@ -378,6 +377,153 @@ class QUITerminal(cmd.Cmd):
         plt.grid(True)
         plt.show()
 
+    def do_earnings(self, ticker):
+    # Show earnings calendar for a stock: earnings TICKER
+        if not ticker:
+            print("[red]Please provide a ticker symbol.[/red]")
+            return
+        try:
+            stock = yf.Ticker(ticker)
+            calendar = stock.calendar
+
+            # Safely check if it's a DataFrame and has content
+            if not hasattr(calendar, "empty") or calendar.empty:
+                print(f"[yellow]No earnings calendar data found for {ticker.upper()}.[/yellow]")
+                return
+
+            print(f"[bold]Earnings Calendar for {ticker.upper()}[/bold]\n")
+            for index, value in calendar.items():
+                label = index.replace("_", " ").title()
+                val = value[0] if isinstance(value, (list, tuple, pd.Series)) else value
+                print(f"{label}: [cyan]{val}[/cyan]")
+
+        except Exception as e:
+            print(f"[red]Error fetching earnings data: {e}[/red]")
+
+    def do_earnings_week(self, arg):
+        """
+        Show weekly earnings calendar from Nasdaq: earnings_week
+        """
+        headers = {
+            "User-Agent": "Mozilla/5.0",
+            "Accept": "application/json",
+            "Referer": "https://www.nasdaq.com/"
+        }
+
+        today = datetime.today()
+        for offset in range(7):
+            day = today + timedelta(days=offset)
+            date_str = day.strftime("%Y-%m-%d")
+            url = f"https://api.nasdaq.com/api/calendar/earnings?date={date_str}"
+
+            try:
+                response = requests.get(url, headers=headers, timeout=10)
+                data = response.json()
+
+                rows = data.get("data", {}).get("rows", [])
+                if not rows:
+                    continue
+
+                print(f"\n[bold cyan]{day.strftime('%A, %B %d, %Y')}[/bold cyan]")
+                for row in rows:
+                    symbol = row.get("symbol", "N/A")
+                    name = row.get("company", "N/A")
+                    time = row.get("time", "N/A")
+                    eps_est = row.get("epsEstimate", "N/A")
+                    print(f"- {symbol} | {name} | Time: {time} | EPS Est: {eps_est}")
+
+            except Exception as e:
+                print(f"[red]Error fetching data for {date_str}: {e}[/red]")
+
+    def do_options(self, arg):
+    # View options for a stock: options TICKER [EXPIRY] [calls|puts] Example: options AAPL -> shows available expiriesoptions AAPL 2024-07-19 calls  -> shows call options
+        parts = arg.strip().split()
+        if len(parts) == 0:
+            print("Usage: options TICKER [EXPIRY] [calls|puts]")
+            return
+
+        ticker = parts[0].upper()
+        try:
+            stock = yf.Ticker(ticker)
+            expirations = stock.options
+            if len(parts) == 1:
+                print(f"[bold]Available Option Expirations for {ticker}[/bold]:")
+                for date in expirations:
+                    print(f"- {date}")
+                return
+
+            if len(parts) >= 2:
+                expiry = parts[1]
+                if expiry not in expirations:
+                    print(f"[red]Invalid expiration date. Use 'options {ticker}' to list valid dates.[/red]")
+                    return
+
+                chain = stock.option_chain(expiry)
+                data = chain.calls if len(parts) < 3 or parts[2].lower() == "calls" else chain.puts
+                print(f"[bold]Options for {ticker} on {expiry} ({'Calls' if data.equals(chain.calls) else 'Puts'})[/bold]")
+
+                table = Table(show_lines=False)
+                table.add_column("Strike", justify="right")
+                table.add_column("Bid", justify="right")
+                table.add_column("Ask", justify="right")
+                table.add_column("Last Price", justify="right")
+                table.add_column("Volume", justify="right")
+                table.add_column("Open Interest", justify="right")
+
+                for _, row in data.iterrows():
+                    table.add_row(
+                        f"{row['strike']:.2f}",
+                        f"{row['bid']:.2f}",
+                        f"{row['ask']:.2f}",
+                        f"{row['lastPrice']:.2f}",
+                        f"{int(row['volume'])}",
+                        f"{int(row['openInterest'])}"
+                    )
+                print(table)
+
+        except Exception as e:
+            print(f"[red]Error retrieving options data: {e}[/red]")
+
+    def do_market(self, arg):
+    #Show global market summary: market
+
+        tickers = {
+            "^GSPC": "S&P 500",
+            "^DJI": "Dow Jones",
+            "^IXIC": "Nasdaq",
+            "^RUT": "Russell 2000",
+            "^VIX": "VIX",
+            "CL=F": "Crude Oil",
+            "GC=F": "Gold",
+            "BTC-USD": "Bitcoin",
+            "ETH-USD": "Ethereum"
+        }
+
+        table = Table(title="Global Market Summary")
+        table.add_column("Index")
+        table.add_column("Price", justify="right")
+        table.add_column("Change", justify="right")
+
+        for symbol, name in tickers.items():
+            try:
+                stock = yf.Ticker(symbol)
+                info = stock.info
+                price = info.get("regularMarketPrice")
+                change = info.get("regularMarketChangePercent")
+                if price is None or change is None:
+                    table.add_row(name, "N/A", "N/A")
+                else:
+                    color = "green" if change >= 0 else "red"
+                    table.add_row(
+                        name,
+                        f"${price:,.2f}",
+                        f"[{color}]{change:+.2f}%[/{color}]"
+                    )
+            except Exception as e:
+                table.add_row(name, "Error", f"{e}")
+
+        print(table)
+
     def do_exit(self, arg):
         """Exit the terminal."""
         print("Goodbye!")
@@ -386,11 +532,15 @@ class QUITerminal(cmd.Cmd):
 
     def do_help(self, arg):
         print("[bold]Available Commands:[/bold]\n")
+        print("- market: Show real-time global index and commodity summary")
         print("- quote TICKER: Get the latest stock price")
         print("- fundamentals TICKER: Show revenue, EBITDA, and FCF per share")
         print("- news TICKER: Show news headlines")
         print("- sentiment TICKER: Get sentiment score based on recent news headlines")
         print("- chart TICKER [RANGE]: Show closing price chart with optional range (7d,30d,90d,1y)")
+        print("- earnings TICKER: Show upcoming earnings dates and events")
+        print("- earnings_week: Show all tickers reporting earnings in the next 7 days")
+        print("- options TICKER [EXPIRY] [calls|puts]: View option chain for a given date")
         print("- alert TICKER PRICE DIRECTION: Set price alert (direction: above/below)")
         print("- alerts: List active alerts")
         print("- cancel_alert TICKER: Cancel alert for ticker")

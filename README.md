@@ -10,3 +10,5 @@ sqlite-utils
 matplotlib
 plyer
 textblob
+requests
+beautifulsoup4
