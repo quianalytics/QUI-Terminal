@@ -9,3 +9,4 @@ feed-parser
 sqlite-utils
 matplotlib
 plyer
+textblob

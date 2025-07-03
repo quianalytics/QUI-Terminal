@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from plyer import notification
 import ssl
 import queue
+from textblob import TextBlob
 
 ALERT_CHECK_INTERVAL = 30  # seconds
 
@@ -197,18 +198,20 @@ class QUITerminal(cmd.Cmd):
             print(f"[red]Could not retrieve data for {ticker.upper()}[/red]")
 
     def do_fundamentals(self, ticker):
-        """Show key financial metrics: fundamentals TICKER"""
+        """Show key financial metrics and historical quarterly financials: fundamentals TICKER"""
         if not ticker:
             print("[red]Please provide a ticker symbol.[/red]")
             return
         try:
             stock = yf.Ticker(ticker)
             info = stock.info
+
+            # Trailing 12 months (TTM) summary metrics
             fcf = info.get("freeCashflow")
             shares = info.get("sharesOutstanding")
             fcf_per_share = (fcf / shares) if (fcf and shares) else None
 
-            table = Table(title=f"{ticker.upper()} Financials")
+            table = Table(title=f"{ticker.upper()} Financials (TTM)")
             table.add_column("Metric")
             table.add_column("Value", justify="right")
             table.add_row("Revenue (TTM)", f"${info.get('totalRevenue', 'N/A'):,}" if info.get('totalRevenue') else "N/A")
@@ -216,9 +219,52 @@ class QUITerminal(cmd.Cmd):
             table.add_row("Free Cash Flow", f"${fcf:,}" if fcf else "N/A")
             table.add_row("FCF / Share", f"${fcf_per_share:.2f}" if isinstance(fcf_per_share, float) else "N/A")
             print(table)
+
+            def format_and_print_df(df, title, rows_to_show):
+                if df is None or df.empty:
+                    print(f"[yellow]No {title} data available.[/yellow]")
+                    return
+                df = df.fillna("N/A")
+                q_table = Table(title=f"{ticker.upper()} {title}")
+                q_table.add_column("Metric")
+                for date in df.columns:
+                    q_table.add_column(str(date.date()))
+                for metric in rows_to_show:
+                    if metric in df.index:
+                        values = [
+                            f"${int(v):,}" if isinstance(v, (int, float)) and v != "N/A" else str(v)
+                            for v in df.loc[metric]
+                        ]
+                        q_table.add_row(metric, *values)
+                print(q_table)
+
+            # Quarterly Income Statement
+            q_financials = stock.quarterly_financials
+            format_and_print_df(
+                q_financials,
+                "Quarterly Income Statement",
+                ["Total Revenue", "EBITDA", "Net Income", "Operating Income"]
+            )
+
+            # Quarterly Cash Flow Statement
+            q_cashflow = stock.quarterly_cashflow
+            format_and_print_df(
+                q_cashflow,
+                "Quarterly Cash Flow Statement",
+                ["Operating Cash Flow", "Capital Expenditures", "Free Cash Flow"]
+            )
+
+            # Quarterly Balance Sheet
+            q_balancesheet = stock.quarterly_balance_sheet
+            format_and_print_df(
+                q_balancesheet,
+                "Quarterly Balance Sheet",
+                ["Total Assets", "Total Liab", "Total Stockholder Equity"]
+            )
+
         except Exception as e:
             print(f"[red]Error retrieving financials: {e}[/red]")
-
+                
     def do_news(self, ticker):
         """Show top 5 Google News headlines: news TICKER"""
         ssl._create_default_https_context = ssl._create_unverified_context
@@ -235,6 +281,48 @@ class QUITerminal(cmd.Cmd):
         for entry in entries[:5]:
             print(f"- [blue]{entry.title}[/blue]")
             print(f"  [dim]{entry.link}[/dim]\n")
+    
+    
+    def do_sentiment(self, ticker):
+    # Show news headlines with sentiment analysis (TextBlob): sentiment TICKER
+        if not ticker:
+            print("[red]Please provide a ticker symbol.[/red]")
+            return
+
+        ssl._create_default_https_context = ssl._create_unverified_context
+        rss_url = f"https://news.google.com/rss/search?q={ticker}&hl=en-US&gl=US&ceid=US:en"
+        feed = feedparser.parse(rss_url)
+        entries = feed.entries
+        if not entries:
+            print(f"[yellow]No news found for {ticker.upper()}.[/yellow]")
+            return
+
+        print(f"[bold]News Sentiment for {ticker.upper()}[/bold]\n")
+
+        sentiments = []
+        for entry in entries[:10]:
+            headline = entry.title
+            score = TextBlob(headline).sentiment.polarity
+            sentiments.append(score)
+
+            if score >= 0.1:
+                color = "green"
+                label = "Positive"
+            elif score <= -0.1:
+                color = "red"
+                label = "Negative"
+            else:
+                color = "yellow"
+                label = "Neutral"
+
+            print(f"- [{color}]{headline}[/{color}] ({label}, score: {score:.2f})")
+            print(f"  [dim]{entry.link}[/dim]\n")
+
+        avg_score = sum(sentiments) / len(sentiments)
+        print(f"[bold]Average Sentiment Score:[/bold] {avg_score:.2f}")
+
+
+
 
     def do_chart(self, arg):
         """
@@ -300,7 +388,8 @@ class QUITerminal(cmd.Cmd):
         print("[bold]Available Commands:[/bold]\n")
         print("- quote TICKER: Get the latest stock price")
         print("- fundamentals TICKER: Show revenue, EBITDA, and FCF per share")
-        print("- news TICKER: Show Google News headlines")
+        print("- news TICKER: Show news headlines")
+        print("- sentiment TICKER: Get sentiment score based on recent news headlines")
         print("- chart TICKER [RANGE]: Show closing price chart with optional range (7d,30d,90d,1y)")
         print("- alert TICKER PRICE DIRECTION: Set price alert (direction: above/below)")
         print("- alerts: List active alerts")
