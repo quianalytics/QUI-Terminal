@@ -1,8 +1,10 @@
 QUI Terminal
 
-Dependencies
+DEPENDENCIES
+
 yfinance
 plotext
 rich
 feed-parser
 sqlite-utils
+matplotlib

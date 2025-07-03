@@ -2,11 +2,12 @@ import cmd
 import yfinance as yf
 import sqlite3
 import feedparser
-import plotext as plt
+#import plotext as plt
+import matplotlib.pyplot as plt
 from rich import print
 from rich.table import Table
-import urllib.parse
 import ssl
+import pandas as pd
 
 
 # --- Database Setup ---
@@ -35,18 +36,23 @@ class MiniTerminal(cmd.Cmd):
 
     # --- CHART ---
     def do_chart(self, ticker):
-        """Show last 30 days of closing prices: chart TICKER"""
+        """Show last 30 days of closing prices as an ASCII chart: chart TICKER"""
         if not ticker:
-            print("[red]Please provide a ticker.[/red]")
+            print("Please provide a ticker symbol.")
             return
-        data = yf.download(ticker, period="30d")
+        data = yf.download(ticker, period="30d", interval="1d", progress=False)
+        data = data[["Close"]].dropna()
         if data.empty:
-            print(f"[red]No data found for {ticker}[/red]")
+            print(f"No closing price data for {ticker.upper()}")
             return
-        plt.clear_figure()
-        plt.plot(data.index.strftime('%m-%d'), data["Close"], label=ticker)
-        plt.title(f"{ticker.upper()} - 30 Day Closing Price")
+        data['Date'] = data.index
+        plt.figure(figsize=(10,5))
+        plt.plot(data['Date'], data['Close'], marker='o')
+        plt.title(f"{ticker.upper()} - Last 30 Days Closing Prices")
+        plt.xticks(rotation=45)
+        plt.tight_layout()
         plt.show()
+                    
 
     # --- WATCHLIST ---
     def do_watchlist(self, arg):
@@ -154,7 +160,7 @@ class MiniTerminal(cmd.Cmd):
 
         except Exception as e:
             print(f"[red]Error retrieving financials for {ticker.upper()}: {e}[/red]")
-            
+
     # --- NEWS ---
     def do_news(self, ticker):
         ssl._create_default_https_context = ssl._create_unverified_context
