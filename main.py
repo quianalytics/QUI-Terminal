@@ -13,7 +13,6 @@ import ssl
 import queue
 from textblob import TextBlob
 import requests
-from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 
 ALERT_CHECK_INTERVAL = 15  # seconds
@@ -488,15 +487,26 @@ class QUITerminal(cmd.Cmd):
     #Show global market summary: market
 
         tickers = {
-            "^GSPC": "S&P 500",
-            "^DJI": "Dow Jones",
-            "^IXIC": "Nasdaq",
-            "^RUT": "Russell 2000",
-            "^VIX": "VIX",
-            "CL=F": "Crude Oil",
-            "GC=F": "Gold",
-            "BTC-USD": "Bitcoin",
-            "ETH-USD": "Ethereum"
+               # US
+                "^GSPC": "S&P 500 (US)",
+                "^DJI": "Dow Jones (US)",
+                "^IXIC": "Nasdaq (US)",
+                "^RUT": "Russell 2000 (US)",
+                "^VIX": "VIX (Volatility US)",
+                "CL=F": "Crude Oil (US)",
+                "GC=F": "Gold (US)",
+                "BTC-USD": "Bitcoin",
+                "ETH-USD": "Ethereum",
+                # Europe
+                "^FTSE": "FTSE 100 (UK)",
+                "^GDAXI": "DAX (Germany)",
+                "^FCHI": "CAC 40 (France)",
+                "^STOXX50E": "STOXX 50 (Europe)",
+                # Asia
+                "^N225": "Nikkei 225 (Japan)",
+                "^HSI": "Hang Seng (Hong Kong)",
+                "000001.SS": "Shanghai Composite (China)",
+                "^AXJO": "S&P/ASX 200 (Australia)"
         }
 
         table = Table(title="Global Market Summary")
