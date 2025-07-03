@@ -14,6 +14,7 @@ import queue
 from textblob import TextBlob
 import requests
 from datetime import datetime, timedelta
+from bs4 import BeautifulSoup
 
 ALERT_CHECK_INTERVAL = 15  # seconds
 
@@ -497,6 +498,7 @@ class QUITerminal(cmd.Cmd):
                 "GC=F": "Gold (US)",
                 "BTC-USD": "Bitcoin",
                 "ETH-USD": "Ethereum",
+                "SOL-USD": "Solana (Crypto)",
                 # Europe
                 "^FTSE": "FTSE 100 (UK)",
                 "^GDAXI": "DAX (Germany)",
@@ -534,6 +536,144 @@ class QUITerminal(cmd.Cmd):
 
         print(table)
 
+    def do_forex(self, arg):
+        # Show major Forex rates: forex
+
+        pairs = {
+            "EUR/USD": "EURUSD=X",
+            "USD/JPY": "JPY=X",
+            "GBP/USD": "GBPUSD=X",
+            "USD/CHF": "CHF=X",
+            "AUD/USD": "AUDUSD=X",
+            "USD/CAD": "CAD=X",
+        }
+
+        table = Table(title="Major Forex Rates")
+        table.add_column("Pair")
+        table.add_column("Price", justify="right")
+        table.add_column("Change", justify="right")
+
+        for name, ticker in pairs.items():
+            try:
+                fx = yf.Ticker(ticker)
+                info = fx.info
+                price = info.get("regularMarketPrice")
+                change = info.get("regularMarketChangePercent")
+                if price is None or change is None:
+                    table.add_row(name, "N/A", "N/A")
+                else:
+                    color = "green" if change >= 0 else "red"
+                    table.add_row(
+                        name,
+                        f"{price:.4f}",
+                        f"[{color}]{change:+.2%}[/{color}]"
+                    )
+            except Exception as e:
+                table.add_row(name, "Error", str(e))
+
+        print(table)
+
+
+    def do_insider(self, ticker):
+        """
+        Show recent insider trades: insider TICKER
+        """
+        ticker = ticker.strip().upper()
+        if not ticker:
+            print("[red]Please provide a ticker symbol.[/red]")
+            return
+
+        url = f"https://finviz.com/insidertrading.ashx?t={ticker}"
+        headers = {"User-Agent": "Mozilla/5.0"}
+
+        try:
+            response = requests.get(url, headers=headers)
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            table = soup.find("table", class_="body-table")
+            if not table:
+                print(f"[yellow]No insider trading data found for {ticker}.[/yellow]")
+                return
+
+            rows = table.find_all("tr")[1:]  # skip header row
+            if not rows:
+                print(f"[yellow]No recent insider trades found for {ticker}.[/yellow]")
+                return
+
+            print(f"[bold]Recent Insider Trades for {ticker}[/bold]\n")
+
+            insider_table = Table()
+            insider_table.add_column("Date")
+            insider_table.add_column("Owner")
+            insider_table.add_column("Relationship")
+            insider_table.add_column("Transaction")
+            insider_table.add_column("Cost")
+            insider_table.add_column("Shares")
+            insider_table.add_column("Value")
+            insider_table.add_column("Shares Total")
+
+            for row in rows[:10]:  # limit to latest 10 trades
+                cols = [td.get_text(strip=True) for td in row.find_all("td")]
+                if len(cols) >= 8:
+                    insider_table.add_row(*cols[:8])
+
+            print(insider_table)
+
+        except Exception as e:
+            print(f"[red]Error fetching insider data: {e}[/red]")
+
+    def do_econ_calendar(self, arg):
+        """ Show upcoming economic events for the next 3 days: econ_calendar """
+        url = "https://www.investing.com/economic-calendar/"
+        headers = {"User-Agent": "Mozilla/5.0"}
+
+        try:
+            response = requests.get(url, headers=headers)
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            # The calendar is dynamic; but Investing.com provides a table with event rows
+            table = soup.find("table", id="economicCalendarData")
+            if not table:
+                print("[red]Failed to find economic calendar table.[/red]")
+                return
+
+            print("[bold]Upcoming Economic Events (Next 3 Days):[/bold]\n")
+
+            today = datetime.today()
+            end_date = today + timedelta(days=3)
+
+            rows = table.find_all("tr", attrs={"data-event-datetime": True})
+
+            count = 0
+            for row in rows:
+                date_str = row["data-event-datetime"]
+                event_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+                if event_date.date() > end_date.date():
+                    continue
+                if event_date.date() < today.date():
+                    continue
+
+                time = event_date.strftime("%Y-%m-%d %H:%M")
+                currency = row.find("td", class_="flagCur").get_text(strip=True)
+                event = row.find("td", class_="event").get_text(strip=True)
+                impact_td = row.find("td", class_="sentiment")
+                impact = impact_td.find("span")["title"] if impact_td and impact_td.find("span") else "N/A"
+                actual = row.find("td", class_="actual").get_text(strip=True)
+                forecast = row.find("td", class_="forecast").get_text(strip=True)
+                previous = row.find("td", class_="previous").get_text(strip=True)
+
+                print(f"{time} | {currency} | {impact} impact | {event}")
+                print(f"  Actual: {actual} | Forecast: {forecast} | Previous: {previous}\n")
+                count += 1
+                if count >= 20:  # Limit output to 20 events
+                    break
+
+            if count == 0:
+                print("[yellow]No economic events found for the next 3 days.[/yellow]")
+
+        except Exception as e:
+            print(f"[red]Error fetching economic calendar: {e}[/red]")
+
     def do_exit(self, arg):
         """Exit the terminal."""
         print("Goodbye!")
@@ -545,10 +685,13 @@ class QUITerminal(cmd.Cmd):
         print("- market: Show real-time global index and commodity summary")
         print("- quote TICKER: Get the latest stock price")
         print("- fundamentals TICKER: Show revenue, EBITDA, and FCF per share")
+        print("- forex: Show major Forex rates")
+        print("- insider TICKER: Show recent insider trading activity for a ticker")
         print("- news TICKER: Show news headlines")
         print("- sentiment TICKER: Get sentiment score based on recent news headlines")
         print("- chart TICKER [RANGE]: Show closing price chart with optional range (7d,30d,90d,1y)")
         print("- earnings TICKER: Show upcoming earnings dates and events")
+        print("- econ_calendar: Show upcoming economic events for the next 3 days")
         print("- earnings_week: Show all tickers reporting earnings in the next 7 days")
         print("- options TICKER [EXPIRY] [calls|puts]: View option chain for a given date")
         print("- alert TICKER PRICE DIRECTION: Set price alert (direction: above/below)")
