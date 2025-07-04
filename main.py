@@ -7,6 +7,7 @@ import yfinance as yf
 import feedparser
 from rich import print
 from rich.table import Table
+from rich.console import Console
 import matplotlib.pyplot as plt
 from plyer import notification
 import ssl
@@ -15,6 +16,8 @@ from textblob import TextBlob
 import requests
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
+import API_KEYS
+import utils as u
 
 ALERT_CHECK_INTERVAL = 15  # seconds
 
@@ -704,6 +707,61 @@ class QUITerminal(cmd.Cmd):
         except Exception as e:
             print(f"[red]Error fetching company info: {e}[/red]")
 
+    def do_glossary(self, arg):
+        """
+        Financial glossary: glossary [term] or glossary category:[category_name]
+        Examples:
+            glossary                       -> lists all terms
+            glossary volatility            -> shows definition of a term
+            glossary category:technical    -> lists technical analysis terms
+        """
+        
+        console = Console()
+        arg = arg.strip().lower()
+
+        if not arg:
+            table = Table(title="Financial Glossary Terms")
+            table.add_column("Term")
+            table.add_column("Definition")
+            for category, terms in u.FINANCE_GLOSSARY.items():
+                for term, definition in terms.items():
+                    table.add_row(term.title(), definition)
+            console.print(table)
+
+        elif arg.startswith("category:"):
+            category = arg.split("category:")[1].strip()
+            if category not in u.FINANCE_GLOSSARY:
+                console.print(f"[red]No such category: {category}[/red]")
+                console.print(f"Available categories: {', '.join(u.FINANCE_GLOSSARY.keys())}")
+                return
+            terms = u.FINANCE_GLOSSARY[category]
+            table = Table(title=f"Glossary Category: {category.title()}")
+            table.add_column("Term")
+            table.add_column("Definition")
+            for term, definition in terms.items():
+                table.add_row(term.title(), definition)
+            console.print(table)
+
+        else:
+            found = []
+            for category, terms in u.FINANCE_GLOSSARY.items():
+                for term, definition in terms.items():
+                    if arg in term.lower():
+                        found.append((term, definition, category))
+            if not found:
+                console.print(f"[red]No matching term found for '{arg}'[/red]")
+            else:
+                table = Table(title=f"Glossary Search Results for '{arg}'")
+                table.add_column("Term")
+                table.add_column("Definition")
+                table.add_column("Category")
+                for term, definition, category in found:
+                    table.add_row(term.title(), definition, category.title())
+                console.print(table)
+
+
+
+
     def do_exit(self, arg):
         """Exit the terminal."""
         print("Goodbye!")
@@ -712,6 +770,7 @@ class QUITerminal(cmd.Cmd):
 
     def do_help(self, arg):
         print("[bold]Available Commands:[/bold]\n")
+        print("- glossary [TERM]: View glossary of trading/finance terms or search by keyword")
         print("- market: Show real-time global index and commodity summary")
         print("- quote TICKER: Get the latest stock price")
         print("- fundamentals TICKER: Show revenue, EBITDA, and FCF per share")
@@ -732,4 +791,3 @@ class QUITerminal(cmd.Cmd):
 
 if __name__ == "__main__":
     QUITerminal().cmdloop()
-
