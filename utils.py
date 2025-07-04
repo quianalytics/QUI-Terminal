@@ -9,7 +9,13 @@ FINANCE_GLOSSARY = {
         "return on assets (ROA)": "Net income divided by total assets.",
         "book value": "The value of assets minus liabilities.",
         "dividend": "A share of profits paid to shareholders.",
-        "dividend yield": "Dividend divided by share price, shown as a percentage."
+        "dividend yield": "Dividend divided by share price, shown as a percentage.",
+        "operating income": "Income from core business operations, excluding non-operating income and expenses.",
+        "gross margin": "Gross profit divided by revenue; measures how efficiently a company produces goods.",
+        "debt-to-equity ratio": "Total liabilities divided by shareholder equity; measures financial leverage.",
+        "enterprise value (EV)": "Market cap plus debt, minority interest, and preferred shares, minus cash.",
+        "ebitda": "Earnings before interest, taxes, depreciation, and amortization — a proxy for cash flow.",
+
     },
     "technical analysis": {
         "moving average": "A smoothed average of prices over a specific period.",
@@ -19,7 +25,14 @@ FINANCE_GLOSSARY = {
         "macd": "Moving Average Convergence Divergence: Shows trend strength and direction.",
         "volume": "The number of shares traded during a given period.",
         "volatility": "Measure of price variation over time.",
-        "candlestick": "A chart type showing open, close, high, and low in a single bar."
+        "candlestick": "A chart type showing open, close, high, and low in a single bar.",
+        "bollinger bands": "A volatility indicator using standard deviation above and below a moving average.",
+        "fibonacci retracement": "A tool for identifying potential reversal levels based on Fibonacci ratios.",
+        "adx": "Average Directional Index: Measures the strength of a trend.",
+        "gap": "When a stock opens significantly above or below its previous close.",
+        "overbought": "A condition where an asset may be priced too high relative to fundamentals or trend.",
+        "oversold": "A condition where an asset may be undervalued or due for a rebound.",
+
     },
     "market terms": {
         "bull market": "A market with rising prices.",
@@ -28,7 +41,14 @@ FINANCE_GLOSSARY = {
         "market capitalization": "Total value of all outstanding shares.",
         "liquidity": "Ease of buying or selling without affecting price.",
         "spread": "Difference between the bid and ask price.",
-        "volume leader": "A stock with unusually high trading volume."
+        "volume leader": "A stock with unusually high trading volume.",
+        "circuit breaker": "A trading pause triggered by rapid market declines to prevent panic selling.",
+        "market breadth": "A measure of how many stocks are participating in a market move.",
+        "tick size": "The minimum price movement of a trading instrument.",
+        "dark pool": "Private exchanges for large-volume trades, often hidden from public order books.",
+        "after-hours trading": "Trading that occurs after the regular market session ends.",
+        "market depth": "The market’s ability to absorb large orders without significant price changes.",
+
     },
     "investing vehicles": {
         "stock": "A share in the ownership of a company.",
@@ -38,7 +58,14 @@ FINANCE_GLOSSARY = {
         "index fund": "A fund that tracks a market index.",
         "option": "A contract giving the right to buy or sell at a specific price.",
         "futures": "Legal agreements to buy/sell assets at a future date and price.",
-        "warrant": "Gives holder the right to purchase stock at a set price."
+        "warrant": "Gives holder the right to purchase stock at a set price.",
+        "reit": "Real Estate Investment Trust: Owns and operates income-producing properties.",
+        "closed-end fund": "An investment fund with a fixed number of shares traded on exchanges.",
+        "spac": "Special Purpose Acquisition Company: A shell company used to take another company public.",
+        "adr": "American Depositary Receipt: A way to invest in non-U.S. companies on U.S. exchanges.",
+        "commodity": "Basic goods like oil, gold, or wheat traded on exchanges.",
+        "stablecoin": "A cryptocurrency pegged to a stable asset like the US dollar.",
+
     },
     "trading strategies": {
         "short selling": "Selling borrowed shares hoping to buy them back lower.",
@@ -46,7 +73,14 @@ FINANCE_GLOSSARY = {
         "limit order": "An order to buy/sell at a specific price or better.",
         "market order": "An order to execute immediately at current market price.",
         "day trading": "Buying/selling the same asset within the same day.",
-        "swing trading": "Holding positions for several days or weeks to capture trends."
+        "swing trading": "Holding positions for several days or weeks to capture trends.",
+        "covered call": "An options strategy where you sell a call option against a stock you own.",
+        "iron condor": "An options strategy combining bull and bear spreads for limited profit/loss.",
+        "straddle": "An options strategy betting on volatility by buying both a call and a put.",
+        "scalping": "A strategy involving many small trades to capture quick price movements.",
+        "penny stock": "Low-priced stocks, often under $5, that are risky and thinly traded.",
+        "mean reversion": "A strategy based on prices returning to historical averages over time.",
+
     },
     "macroeconomics": {
         "inflation": "The rate at which the general price level is rising.",
@@ -55,14 +89,80 @@ FINANCE_GLOSSARY = {
         "cpi": "Consumer Price Index: Measures inflation based on consumer goods.",
         "unemployment rate": "Percentage of the labor force without jobs.",
         "federal reserve": "The central banking system of the U.S.",
-        "monetary policy": "The actions of central banks to control money supply."
+        "monetary policy": "The actions of central banks to control money supply.",
+        "interest rate hike": "An increase in benchmark interest rates by a central bank.",
+        "bond yield curve": "A line that plots yields of bonds with different maturities.",
+        "fomc": "Federal Open Market Committee: The branch of the Fed that sets interest rates.",
+        "quantitative easing": "A monetary policy where central banks buy securities to increase liquidity.",
+        "tapering": "Gradually reducing central bank asset purchases to tighten monetary policy.",
+        "deflation": "A decrease in the general price level of goods and services.",
+
     },
     "risk & performance": {
         "alpha": "Return generated beyond market performance.",
         "beta": "Volatility of an asset compared to the market.",
         "sharpe ratio": "Risk-adjusted return measure.",
         "drawdown": "Peak-to-trough decline in investment value.",
-        "hedge": "An investment to reduce the risk of adverse price movements."
-    }
+        "hedge": "An investment to reduce the risk of adverse price movements.",
+        "standard deviation": "A measure of how spread out investment returns are from the average.",
+        "value at risk (VaR)": "A statistical measure estimating potential loss over a set time period.",
+        "tracking error": "The difference between a portfolio's performance and its benchmark.",
+        "maximum drawdown": "The largest peak-to-trough decline during a specific time frame.",
+        "stress test": "A simulation used to assess how portfolios perform under extreme conditions.",
+
+    },
+    "quantitative finance": {
+    "backtesting": "The process of testing a trading strategy using historical data to assess performance.",
+    "alpha signal": "A quantitative indicator or factor used to predict excess returns.",
+    "factor model": "A model that explains asset returns using various risk or style factors (e.g., value, momentum).",
+    "black-scholes model": "A mathematical model used to calculate the theoretical price of options.",
+    "sharpe ratio": "Measures risk-adjusted return by dividing excess return by standard deviation.",
+    "sortino ratio": "Similar to Sharpe, but penalizes only downside volatility.",
+    "mean-variance optimization": "A method for constructing portfolios with the highest return for a given risk level.",
+    "monte carlo simulation": "A technique that simulates thousands of scenarios to estimate possible outcomes.",
+    "machine learning": "Use of algorithms and models that improve predictions through data patterns, often used in quant models.",
+    "high-frequency trading (HFT)": "Algorithmic trading strategies that execute many orders at extremely high speed.",
+    "pair trading": "A market-neutral strategy that identifies relative mispricings between two historically correlated assets.",
+    "cointegration": "A statistical relationship where two non-stationary time series move together in the long run.",
+    "z-score": "A measure of how many standard deviations a data point is from the mean.",
+    "stationarity": "A statistical property where the mean and variance of a time series remain constant over time.",
+    "kalman filter": "An algorithm that uses a series of measurements over time to estimate unknown variables with noise.",
+    "risk parity": "An asset allocation strategy where each asset contributes equally to overall portfolio risk.",
+    "principal component analysis (PCA)": "A dimensionality reduction technique used in factor modeling and risk analysis.",
+    "value at risk (VaR)": "Estimates the potential maximum loss over a period with a given confidence level.",
+    "expected shortfall": "The expected loss in the worst-case scenarios beyond the VaR threshold.",
+    "information ratio": "Measures excess return relative to a benchmark divided by tracking error.",
+},
+"crypto": {
+    "bitcoin": "The first decentralized cryptocurrency, created by Satoshi Nakamoto in 2009.",
+    "ethereum": "A decentralized platform that enables smart contracts and decentralized applications (dApps).",
+    "blockchain": "A distributed ledger that records transactions across many computers securely and immutably.",
+    "wallet": "A digital tool used to store, send, and receive cryptocurrencies.",
+    "public key": "A cryptographic address used to receive crypto, visible to others.",
+    "private key": "A secret code used to access and control your crypto — must be kept secure.",
+    "gas fees": "Fees paid to process transactions and execute smart contracts on blockchains like Ethereum.",
+    "smart contract": "Self-executing code that runs on a blockchain and enforces agreements without intermediaries.",
+    "proof of work": "A consensus mechanism where miners solve complex problems to validate transactions (e.g., Bitcoin).",
+    "proof of stake": "A consensus model where validators are chosen based on the number of tokens they hold and stake.",
+    "altcoin": "Any cryptocurrency other than Bitcoin.",
+    "stablecoin": "A crypto asset pegged to a stable value, often the U.S. dollar (e.g., USDC, USDT).",
+    "token": "A digital asset issued on a blockchain, often representing utility, value, or voting rights.",
+    "layer 1": "Base blockchain networks like Bitcoin or Ethereum.",
+    "layer 2": "Secondary frameworks built on top of Layer 1s to improve scalability and speed (e.g., Polygon, Arbitrum).",
+    "nft": "Non-Fungible Token: A unique digital asset representing ownership, often of art, music, or items.",
+    "defi": "Decentralized Finance: A system of financial services built on blockchains without intermediaries.",
+    "dao": "Decentralized Autonomous Organization: A member-run organization governed by smart contracts and token holders.",
+    "exchange": "A platform where cryptocurrencies are bought, sold, and traded (e.g., Coinbase, Binance).",
+    "cold wallet": "An offline crypto storage solution, more secure from hacks.",
+    "hot wallet": "A crypto wallet connected to the internet — more convenient but less secure.",
+    "hash rate": "The computational power used in mining cryptocurrencies.",
+    "fork": "A split in a blockchain that results in two separate chains (e.g., Bitcoin and Bitcoin Cash).",
+    "rug pull": "A scam where developers abandon a project and take investors’ funds.",
+    "airdrops": "Free token distributions to promote a project or reward users.",
+    "ico": "Initial Coin Offering: A fundraising method for new crypto projects by selling tokens.",
+    "dex": "Decentralized Exchange: A crypto exchange with no central authority (e.g., Uniswap).",
+}
+
+
 }
 

@@ -16,10 +16,19 @@ from textblob import TextBlob
 import requests
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
-import API_KEYS
 import utils as u
+import os
+from dotenv import load_dotenv
+from fredapi import Fred
+from playwright.sync_api import sync_playwright
 
-ALERT_CHECK_INTERVAL = 15  # seconds
+ALERT_CHECK_INTERVAL = 30  # seconds
+
+ssl._create_default_https_context = ssl._create_unverified_context
+
+load_dotenv()
+FRED_API_KEY = os.getenv("FRED_API_KEY")
+fred = Fred(api_key=FRED_API_KEY)
 
 class QUITerminal(cmd.Cmd):
     intro = "Welcome to the QUI Terminal. Type help or ? to list commands.\n"
@@ -759,7 +768,68 @@ class QUITerminal(cmd.Cmd):
                     table.add_row(term.title(), definition, category.title())
                 console.print(table)
 
+    def do_etf_holdings(self, arg):
+        def get_etf_holdings_playwright(ticker):
+            url = f"https://etfdb.com/etf/{ticker}/#holdings"
 
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=False, args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox"
+                ])
+                page = browser.new_page()
+                page.set_extra_http_headers({
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+                })
+
+                page.evaluate("""() => {
+                    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+                    window.navigator.chrome = { runtime: {} };
+                    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+                    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
+                }""")
+
+                try:
+                    # Load page and wait until just DOM is ready
+                    page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                    page.wait_for_selector("#etf-holdings")
+                    rows = page.query_selector_all("#etf-holdings > tbody > tr")
+                    holdings = []
+                    for row in rows[:10]:
+                        cells = row.query_selector_all("td")
+                        ticker_text = cells[0].inner_text().strip()
+                        name_text = cells[1].inner_text().strip()
+                        weight_text = cells[2].inner_text().strip().replace('%','')
+                        holdings.append((ticker_text, name_text, weight_text))
+                    
+                    browser.close()
+                    return holdings
+
+                except Exception as e:
+                    html = page.content()
+                    with open("etf_debug.html", "w", encoding="utf-8") as f:
+                        f.write(html)
+                    browser.close()
+                    raise Exception(f"Error fetching ETF holdings for {ticker}: {e}")
+
+        if not arg:
+            print("[red]Please provide an ETF ticker symbol.[/red]")
+            return
+        etf_ticker = arg.upper()
+        try:
+            holdings = get_etf_holdings_playwright(etf_ticker)
+            table = Table(title=f"Top Holdings of {etf_ticker}")
+            table.add_column("Ticker", style="cyan")
+            table.add_column("Name")
+            table.add_column("Weight (%)", justify="right")
+
+            for ticker, name, weight in holdings:
+                table.add_row(ticker, name, weight)
+
+            print(table)
+        except Exception as e:
+            print(f"[red]Error fetching ETF holdings for {etf_ticker}: {e}[/red]")
 
 
     def do_exit(self, arg):
@@ -767,12 +837,75 @@ class QUITerminal(cmd.Cmd):
         print("Goodbye!")
         self.alert_queue.put(None)
         return True
+    
+    def do_macro_dashboard(self, arg):
+        """
+        Show U.S. macroeconomic dashboard with grouped categories: do_macro
+        """
+        console = Console()
+
+        grouped_indicators = {
+            "Inflation": {
+                "CPI (YoY)": "CPIAUCSL",
+                "Core CPI (YoY)": "CPILFESL",
+                "PCE Inflation": "PCEPI",
+            },
+            "Labor Market": {
+                "Unemployment Rate": "UNRATE",
+                "Labor Force Participation": "CIVPART",
+                "Nonfarm Payrolls": "PAYEMS",
+            },
+            "GDP & Growth": {
+                "GDP Growth (QoQ %)": "A191RL1Q225SBEA",
+            },
+            "Monetary Policy & Rates": {
+                "Fed Funds Rate": "FEDFUNDS",
+                "10Y Treasury Yield": "GS10",
+                "2Y Treasury Yield": "GS2",
+                "M2 Money Supply": "M2SL",
+            },
+            "Consumer & Retail": {
+                "Consumer Confidence": "UMCSENT",
+                "Retail Sales (YoY)": "RSAFS",
+            },
+            "Manufacturing & Housing": {
+                "ISM Manufacturing PMI": "NAPM",
+                "Case-Shiller Home Price Index": "CSUSHPINSA",
+                "Housing Starts": "HOUST",
+            },
+            "Commodities": {
+                "Crude Oil Price (WTI)": "DCOILWTICO",
+                "Gold Price": "GOLDAMGBD228NLBM",
+            }
+        }
+
+        for category, indicators in grouped_indicators.items():
+            table = Table(title=f"{category} Indicators")
+            table.add_column("Indicator")
+            table.add_column("Value", justify="right")
+            table.add_column("Date", justify="center")
+
+            try:
+                for label, series_id in indicators.items():
+                    data = fred.get_series(series_id)
+                    latest_date = data.last_valid_index()
+                    latest_value = data[latest_date]
+                    value_str = f"{latest_value:.2f}" if isinstance(latest_value, (int, float)) else str(latest_value)
+                    date_str = latest_date.strftime("%Y-%m-%d") if isinstance(latest_date, datetime) else str(latest_date)
+                    table.add_row(label, value_str, date_str)
+            except Exception as e:
+                console.print(f"[red]Error fetching {category} data: {e}[/red]")
+
+            console.print(table)
+            console.print("\n")  # extra space between tables
 
     def do_help(self, arg):
         print("[bold]Available Commands:[/bold]\n")
         print("- glossary [TERM]: View glossary of trading/finance terms or search by keyword")
         print("- market: Show real-time global index and commodity summary")
+        print("- macro_dashboard: Show U.S. macroeconomic dashboard with key grouped indicators")
         print("- quote TICKER: Get the latest stock price")
+        print("- etf_holdings TICKER: Show top holdings of an ETF")
         print("- fundamentals TICKER: Show revenue, EBITDA, and FCF per share")
         print("- company_info TICKER: Show company profile and details")
         print("- forex: Show major Forex rates")
