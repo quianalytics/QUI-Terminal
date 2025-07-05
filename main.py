@@ -942,11 +942,64 @@ class QUITerminal(cmd.Cmd):
             console.print(table)
             console.print("\n")  # extra space between tables
 
+    def do_sector_heatmap(self, arg):
+        """
+        Show a Market Heatmap of major sectors.
+        Usage: heatmap
+        """
+        console = Console()
+
+        sectors = {
+            "Technology": "XLK",
+            "Healthcare": "XLV",
+            "Financials": "XLF",
+            "Consumer Discretionary": "XLY",
+            "Consumer Staples": "XLP",
+            "Energy": "XLE",
+            "Industrials": "XLI",
+            "Materials": "XLB",
+            "Real Estate": "XLRE",
+            "Utilities": "XLU",
+            "Communication Services": "XLC",
+        }
+
+        table = Table(title="Market Sector Heatmap (Daily % Change)", show_lines=False)
+        table.add_column("Sector", style="bold")
+        table.add_column("ETF", justify="center")
+        table.add_column("Price", justify="right")
+        table.add_column("Change %", justify="right")
+
+        for sector, etf in sectors.items():
+            try:
+                stock = yf.Ticker(etf)
+                hist = stock.history(period="5d", interval="1d")
+                closes = hist["Close"].dropna()
+
+                if len(closes) < 2:
+                    raise ValueError("Not enough data")
+
+                prev_close = closes.iloc[-2]
+                last_close = closes.iloc[-1]
+                change_pct = (last_close - prev_close) / prev_close
+
+                color = "green" if change_pct >= 0 else "red"
+                table.add_row(
+                    sector,
+                    etf,
+                    f"${last_close:.2f}",
+                    f"[{color}]{change_pct:+.2%}[/{color}]"
+                )
+            except Exception as e:
+                table.add_row(sector, etf, "Error", "-")
+
+        console.print(table)
+
     def do_help(self, arg):
         print("[bold]Available Commands:[/bold]\n")
         print("- glossary [TERM]: View glossary of trading/finance terms or search by keyword")
         print("- market: Show real-time global index and commodity summary")
         print("- macro_dashboard: Show U.S. macroeconomic dashboard with key grouped indicators")
+        print("- sector_heatmap: Show sector market heatmap based on ETF performance")
         print("- quote TICKER: Get the latest stock price")
         print("- etf_holdings TICKER: Show top holdings of an ETF")
         print("- fundamentals TICKER: Show revenue, EBITDA, and FCF per share")
