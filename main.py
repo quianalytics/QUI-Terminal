@@ -23,6 +23,7 @@ from fredapi import Fred
 from playwright.sync_api import sync_playwright
 import urllib.request
 import pandas as pd
+from openai import OpenAI
 
 ALERT_CHECK_INTERVAL = 30  # seconds
 
@@ -31,6 +32,9 @@ ssl._create_default_https_context = ssl._create_unverified_context
 load_dotenv()
 FRED_API_KEY = os.getenv("FRED_API_KEY")
 fred = Fred(api_key=FRED_API_KEY)
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY")) 
+
 
 class QUITerminal(cmd.Cmd):
     intro = "Welcome to the QUI Terminal. Type help or ? to list commands.\n"
@@ -355,7 +359,42 @@ class QUITerminal(cmd.Cmd):
         except Exception as e:
             print(f"[red]Error fetching fixed income data: {e}[/red]")
 
+    def do_get_trade_idea(self, arg):
+        """
+        Generate an AI trade idea.
+        Usage: trade_idea "sector" "time_horizon" "risk_level"
+        Example: trade_idea "technology" "3 months" "moderate"
+        """
+        args = arg.split('"')
+        # crude parsing, expects: "sector" "time_horizon" "risk_level"
+        if len(args) < 7:
+            print("[red]Usage: trade_idea \"sector\" \"time_horizon\" \"risk_level\"[/red]")
+            return
+        sector = args[1]
+        time_horizon = args[3]
+        risk = args[5]
 
+        prompt = (
+            f"You are a professional market analyst. Given the following parameters, "
+            f"suggest one trade idea including ticker, trade type, timeframe, and rationale:\n\n"
+            f"Sector: {sector}\n"
+            f"Time Horizon: {time_horizon}\n"
+            f"Risk Level: {risk}\n\n"
+            "Provide your answer as a short bullet list."
+        )
+        
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4",
+                messages=[{"role": "system", "content": "You are a market strategist giving smart, concise trade ideas."},
+                {"role": "user", "content": prompt}],
+                max_tokens=300,
+                temperature=0.7,
+            )
+            trade_idea = response['choices'][0]['message']['content']
+            print(f"[bold green]AI Trade Idea:[/bold green]\n{trade_idea}")
+        except Exception as e:
+            print(f"[red]Error generating trade idea: {e}[/red]")
 
 
 
@@ -1171,6 +1210,7 @@ class QUITerminal(cmd.Cmd):
         print("- alert TICKER PRICE DIRECTION: Set price alert (direction: above/below)")
         print("- alerts: List active alerts")
         print("- cancel_alert TICKER: Cancel alert for ticker")
+        print("- get_trade_idea \"sector\" \"time_horizon\" \"risk_level\": Generate an AI-powered trade suggestion")
         print("- exit: Quit the terminal")
 
 if __name__ == "__main__":
