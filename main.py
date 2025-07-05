@@ -297,7 +297,72 @@ class QUITerminal(cmd.Cmd):
         for entry in entries[:5]:
             print(f"- [blue]{entry.title}[/blue]")
             print(f"  [dim]{entry.link}[/dim]\n")
-      
+    
+    def do_fixed_income_dashboard(self, arg):
+        """
+        Show live Treasury yields and Moody’s corporate bond averages.
+        """
+
+        fred_api_key = os.getenv("FRED_API_KEY")
+        if not fred_api_key:
+            print("[red]FRED API key not found. Set FRED_API_KEY as an environment variable.[/red]")
+            return
+
+        try:
+            fred = Fred(api_key=fred_api_key)
+
+            treasury_series = {
+                "1M": "DTB1",
+                "3M": "DTB3",
+                "6M": "DTB6",
+                "1Y": "GS1",
+                "2Y": "GS2",
+                "5Y": "GS5",
+                "10Y": "GS10",
+                "30Y": "GS30"
+            }
+
+            corp_series = {
+                "Moody’s Aaa": "DAAA",
+                "Moody’s Baa": "DBAA"
+            }
+
+            def fetch_latest(series_id):
+                series = fred.get_series(series_id)
+                if series.empty:
+                    return None
+                return round(series.dropna().iloc[-1], 2)
+
+            # Treasury Yields Table
+            treas_table = Table(title="U.S. Treasury Yields (Latest %)")
+            treas_table.add_column("Maturity")
+            treas_table.add_column("Yield (%)", justify="right")
+            for label, sid in treasury_series.items():
+                value = fetch_latest(sid)
+                treas_table.add_row(label, f"{value:.2f}" if value is not None else "N/A")
+
+            # Corporate Bonds Table
+            corp_table = Table(title="Corporate Bond Yields (Moody’s Averages)")
+            corp_table.add_column("Rating")
+            corp_table.add_column("Yield (%)", justify="right")
+            for label, sid in corp_series.items():
+                value = fetch_latest(sid)
+                corp_table.add_row(label, f"{value:.2f}" if value is not None else "N/A")
+
+            print(treas_table)
+            print(corp_table)
+
+        except Exception as e:
+            print(f"[red]Error fetching fixed income data: {e}[/red]")
+
+
+
+
+
+
+
+
+
     def do_sentiment(self, ticker):
     # Show news headlines with sentiment analysis (TextBlob): sentiment TICKER
         if not ticker:
@@ -1093,7 +1158,7 @@ class QUITerminal(cmd.Cmd):
         print("- fundamentals TICKER: Show revenue, EBITDA, and FCF per share")
         print("- company_info TICKER: Show company profile and details")
         print("- forex_rates: Show major Forex rates")
-        print("- correlation")
+        print("- fixed_income_dashboard: Show U.S. Treasury and corporate bond yields")
         print("- insider TICKER: Show recent insider trading activity for a ticker")
         print("- news TICKER: Show news headlines")
         print("- sentiment TICKER: Get sentiment score based on recent news headlines")
