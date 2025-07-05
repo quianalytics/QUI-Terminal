@@ -9,3 +9,6 @@ alerts.db
 watchlist.db
 API_KEYS.py
 .env
+setup.py
+build/
+resources.txt

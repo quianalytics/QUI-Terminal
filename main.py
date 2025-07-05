@@ -46,7 +46,6 @@ class QUITerminal(cmd.Cmd):
         self._load_alerts()
         self._start_alert_listener()
 
-
     def _setup_db(self):
         c = self.db.cursor()
         c.execute("""
@@ -548,7 +547,7 @@ class QUITerminal(cmd.Cmd):
 
         print(table)
 
-    def do_forex(self, arg):
+    def do_forex_rates(self, arg):
         # Show major Forex rates: forex
 
         pairs = {
@@ -558,7 +557,27 @@ class QUITerminal(cmd.Cmd):
             "USD/CHF": "CHF=X",
             "AUD/USD": "AUDUSD=X",
             "USD/CAD": "CAD=X",
+            "NZD/USD": "NZDUSD=X",
+            "USD/MXN": "MXN=X",
+            "USD/TRY": "TRY=X",
+            "USD/ZAR": "ZAR=X",
+            "EUR/GBP": "EURGBP=X",
+            "EUR/JPY": "EURJPY=X",
+            "GBP/JPY": "GBPJPY=X",
+            "EUR/AUD": "EURAUD=X",
+            "EUR/CAD": "EURCAD=X",
+            "AUD/JPY": "AUDJPY=X",
+            "CHF/JPY": "CHFJPY=X",
+            "GBP/CAD": "GBPCAD=X",
+            "NZD/JPY": "NZDJPY=X",
+            "USD/SGD": "SGD=X",
+            "USD/HKD": "HKD=X",
+            "USD/NOK": "NOK=X",
+            "USD/SEK": "SEK=X",
+            "USD/DKK": "DKK=X",
+            "USD/PLN": "PLN=X",
         }
+
 
         table = Table(title="Major Forex Rates")
         table.add_column("Pair")
@@ -658,8 +677,6 @@ class QUITerminal(cmd.Cmd):
             print(table)
         except Exception as e:
             print(f"[red]{e}[/red]")
-
-
 
     def do_econ_calendar(self, arg):
         """ Show upcoming economic events for the next 3 days: econ_calendar """
@@ -858,7 +875,6 @@ class QUITerminal(cmd.Cmd):
         except Exception as e:
             print(f"[red]Error fetching ETF holdings for {etf_ticker}: {e}[/red]")
 
-
     def do_exit(self, arg):
         """Exit the terminal."""
         print("Goodbye!")
@@ -935,7 +951,7 @@ class QUITerminal(cmd.Cmd):
         print("- etf_holdings TICKER: Show top holdings of an ETF")
         print("- fundamentals TICKER: Show revenue, EBITDA, and FCF per share")
         print("- company_info TICKER: Show company profile and details")
-        print("- forex: Show major Forex rates")
+        print("- forex_rates: Show major Forex rates")
         print("- insider TICKER: Show recent insider trading activity for a ticker")
         print("- news TICKER: Show news headlines")
         print("- sentiment TICKER: Get sentiment score based on recent news headlines")
