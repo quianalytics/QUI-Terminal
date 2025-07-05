@@ -22,6 +22,7 @@ from dotenv import load_dotenv
 from fredapi import Fred
 from playwright.sync_api import sync_playwright
 import urllib.request
+import pandas as pd
 
 ALERT_CHECK_INTERVAL = 30  # seconds
 
@@ -1030,10 +1031,57 @@ class QUITerminal(cmd.Cmd):
         except Exception as e:
             print(f"[red]Error fetching SEC filings for {ticker.upper()}: {e}[/red]")
 
+    def do_correlation(self, arg):
+        """
+        Show correlation matrix for given tickers using Close prices:
+        correlation TICKER1 TICKER2 TICKER3 ...
+        Example:
+        correlation AAPL MSFT GOOGL AMZN
+        """
+        tickers = arg.upper().split()
+        if len(tickers) < 2:
+            print("[red]Please provide at least two tickers.[/red]")
+            return
+
+        try:
+            print(f"Fetching data for: {', '.join(tickers)}...")
+            data = yf.download(tickers, period="6mo", interval="1d", progress=False)
+
+            if isinstance(data.columns, pd.MultiIndex):
+                if 'Close' in data.columns.levels[0]:
+                    data = data['Close']
+                else:
+                    print("[red]'Close' not found in data columns.[/red]")
+                    return
+            else:
+                if 'Close' in data.columns:
+                    data = data[['Close']]
+                else:
+                    print("[red]'Close' column not found in data.[/red]")
+                    return
+
+            if data.empty:
+                print("[red]No data fetched for provided tickers.[/red]")
+                return
+
+            returns = data.pct_change().dropna()
+            corr = returns.corr()
+
+            table = Table(title="Stock Correlation Matrix (6 months, Close Prices)")
+            table.add_column("Ticker")
+            for t in corr.columns:
+                table.add_column(t, justify="right")
+
+            for idx, row in corr.iterrows():
+                table.add_row(idx, *[f"{v:.2f}" for v in row])
+
+            print(table)
+
+        except Exception as e:
+            print(f"[red]Error fetching or processing data: {e}[/red]")
 
 
 
-    
     def do_help(self, arg):
         print("[bold]Available Commands:[/bold]\n")
         print("- glossary [TERM]: View glossary of trading/finance terms or search by keyword")
