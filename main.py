@@ -585,54 +585,81 @@ class QUITerminal(cmd.Cmd):
 
         print(table)
 
+    def do_insider(self, arg):
+        """
+        Show recent insider trades from Finviz: insider TICKER
+        """
+        def get_insider_trades_playwright(ticker):
+            url = f"https://finviz.com/insidertrading.ashx?t={ticker}"
 
-    def do_insider(self, ticker):
-        """
-        Show recent insider trades: insider TICKER
-        """
-        ticker = ticker.strip().upper()
-        if not ticker:
-            print("[red]Please provide a ticker symbol.[/red]")
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True, args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox"
+                ])
+                page = browser.new_page()
+                page.set_extra_http_headers({
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+                })
+
+                page.evaluate("""() => {
+                    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+                    window.navigator.chrome = { runtime: {} };
+                    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+                    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
+                }""")
+
+                try:
+                    page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                    page.wait_for_selector("#insider-table")
+                    rows = page.query_selector_all("#insider-table > tbody > tr")
+                    trades = []
+                    for row in rows:
+                        cells = row.query_selector_all("td")
+                        if len(cells) >= 6:
+                            insider = cells[1].inner_text().strip()
+                            relation = cells[2].inner_text().strip()
+                            date = cells[3].inner_text().strip()
+                            txn = cells[4].inner_text().strip()
+                            shares = cells[6].inner_text().strip()
+                            price = cells[5].inner_text().strip()
+                            total_value = cells[7].inner_text().strip()
+                            trades.append((insider, relation, date, txn, shares, price, total_value))
+
+                    browser.close()
+                    return trades
+
+                except Exception as e:
+                    html = page.content()
+                    with open("insider_debug.html", "w", encoding="utf-8") as f:
+                        f.write(html)
+                    browser.close()
+                    raise Exception(f"Error fetching insider data for {ticker}: {e}")
+
+        if not arg:
+            print("[red]Please provide a stock ticker symbol.[/red]")
             return
-
-        url = f"https://finviz.com/insidertrading.ashx?t={ticker}"
-        headers = {"User-Agent": "Mozilla/5.0"}
-
+        ticker = arg.upper()
         try:
-            response = requests.get(url, headers=headers)
-            soup = BeautifulSoup(response.text, "html.parser")
+            trades = get_insider_trades_playwright(ticker)
+            table = Table(title=f"Recent Insider Trades for {ticker}")
+            table.add_column("Insider", style="cyan")
+            table.add_column("Relation")
+            table.add_column("Date", style="green")
+            table.add_column("Transaction", style="yellow")
+            table.add_column("Shares", justify="right")
+            table.add_column("Price", justify="right")
+            table.add_column("Total Value", justify="right")
 
-            table = soup.find("table", class_="body-table")
-            if not table:
-                print(f"[yellow]No insider trading data found for {ticker}.[/yellow]")
-                return
+            for trade in trades:
+                table.add_row(*trade)
 
-            rows = table.find_all("tr")[1:]  # skip header row
-            if not rows:
-                print(f"[yellow]No recent insider trades found for {ticker}.[/yellow]")
-                return
-
-            print(f"[bold]Recent Insider Trades for {ticker}[/bold]\n")
-
-            insider_table = Table()
-            insider_table.add_column("Date")
-            insider_table.add_column("Owner")
-            insider_table.add_column("Relationship")
-            insider_table.add_column("Transaction")
-            insider_table.add_column("Cost")
-            insider_table.add_column("Shares")
-            insider_table.add_column("Value")
-            insider_table.add_column("Shares Total")
-
-            for row in rows[:10]:  # limit to latest 10 trades
-                cols = [td.get_text(strip=True) for td in row.find_all("td")]
-                if len(cols) >= 8:
-                    insider_table.add_row(*cols[:8])
-
-            print(insider_table)
-
+            print(table)
         except Exception as e:
-            print(f"[red]Error fetching insider data: {e}[/red]")
+            print(f"[red]{e}[/red]")
+
+
 
     def do_econ_calendar(self, arg):
         """ Show upcoming economic events for the next 3 days: econ_calendar """
@@ -773,7 +800,7 @@ class QUITerminal(cmd.Cmd):
             url = f"https://etfdb.com/etf/{ticker}/#holdings"
 
             with sync_playwright() as p:
-                browser = p.chromium.launch(headless=False, args=[
+                browser = p.chromium.launch(headless=True, args=[
                     "--disable-blink-features=AutomationControlled",
                     "--no-sandbox",
                     "--disable-setuid-sandbox"
