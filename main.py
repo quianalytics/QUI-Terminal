@@ -21,6 +21,7 @@ import os
 from dotenv import load_dotenv
 from fredapi import Fred
 from playwright.sync_api import sync_playwright
+import urllib.request
 
 ALERT_CHECK_INTERVAL = 30  # seconds
 
@@ -994,6 +995,45 @@ class QUITerminal(cmd.Cmd):
 
         console.print(table)
 
+    def do_sec_filings(self, ticker):
+        """Show recent SEC filings: sec TICKER"""
+        if not ticker:
+            print("[red]Please provide a ticker symbol.[/red]")
+            return
+
+        rss_url = f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={ticker}&type=&count=10&output=atom"
+
+        print(f"[bold]Recent SEC Filings for {ticker.upper()}[/bold]\n")
+
+        try:
+            headers = {
+                "User-Agent": "MyCompanyName Contact: myemail@example.com"
+            }
+            request = urllib.request.Request(rss_url, headers=headers)
+            with urllib.request.urlopen(request) as response:
+                feed_data = response.read()
+
+            feed = feedparser.parse(feed_data)
+
+            if not feed.entries:
+                print(f"[yellow]No filings found for {ticker.upper()}.[/yellow]")
+                return
+
+            for entry in feed.entries[:10]:
+                title = entry.get("title", "No Title")
+                updated = entry.get("updated", "")
+                date = updated.split("T")[0] if "T" in updated else updated
+                link = entry.get("link", "No Link")
+                print(f"- [blue]{title}[/blue] ({date})")
+                print(f"  [dim]{link}[/dim]\n")
+
+        except Exception as e:
+            print(f"[red]Error fetching SEC filings for {ticker.upper()}: {e}[/red]")
+
+
+
+
+    
     def do_help(self, arg):
         print("[bold]Available Commands:[/bold]\n")
         print("- glossary [TERM]: View glossary of trading/finance terms or search by keyword")
